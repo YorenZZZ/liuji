@@ -144,3 +144,14 @@ test('logged-in password changes require no old password and revoke all old sess
  assert.equal((await fetch(url+'/api/logout',{method:'POST',headers:{cookie:renewed,'X-Liuji-Action':'1'}})).status,200);
  assert.equal((await fetch(url+'/api/stats',{headers:{cookie:renewed}})).status,401);
 });
+
+test('direct draft deletion is recoverable and cannot hide a concurrently published entry',async t=>{
+ const {store,request}=await webFixture(t);
+ const draft=store.createEntry({text:'可恢复的草稿'});
+ const response=await request(`/api/entries/${draft.id}/trash`,{method:'POST',body:{expectedVersion:draft.version,draftOnly:true}});
+ assert.equal(response.status,200);const deleted=await response.json();assert.ok(deleted.trashedAt);assert.equal(store.list({status:'drafts'}).total,0);
+ assert.equal((await request(`/api/entries/${draft.id}/restore`,{method:'POST',body:{expectedVersion:deleted.version}})).status,200);
+ const updated=store.getEntry(draft.id);store.recordPublication(draft.id,pub(updated.version));
+ assert.equal((await request(`/api/entries/${draft.id}/trash`,{method:'POST',body:{expectedVersion:updated.version,draftOnly:true}})).status,409);
+ assert.equal(store.timeline().total,1);assert.equal(store.getEntry(draft.id).trashedAt,null);
+});

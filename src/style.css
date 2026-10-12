@@ -9,3 +9,23 @@
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 @media(max-width:720px){.mobile-platform-filter{display:block}.filters{flex-wrap:wrap}.filters .search{flex-basis:100%;border-top:1px solid var(--line);padding-top:3px}.filters select{max-width:48%}}
+
+.draft-swipe{position:relative;min-width:0;border-radius:12px;overflow:hidden;touch-action:pan-y pinch-zoom}.draft-swipe:focus-visible{outline:2px solid var(--green);outline-offset:3px}.draft-swipe>.entry-card{position:relative;z-index:1;transition:transform .18s ease;transform:translateX(0)}.draft-swipe-delete{display:none}.card-footer .draft-desktop-delete{margin-left:8px;min-width:40px;min-height:40px;color:#af3c37}.card-footer>.text-button{margin-left:auto}.writing-footer .editor-delete{color:#af3c37;font-size:12px;min-height:44px;display:inline-flex;align-items:center;gap:6px}.draft-desktop-delete:hover,.editor-delete:hover{background:#af3c370d}.draft-swipe.is-dragging>.entry-card{transition:none}
+@media(max-width:720px),(pointer:coarse){.draft-swipe>.entry-card{transform:translateX(var(--draft-offset))}.card-footer .draft-desktop-delete{display:none}.draft-swipe-delete{position:absolute;inset:0 0 0 auto;width:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:0;background:#b63e37;color:#fff;font-size:13px}.draft-swipe-delete:disabled{opacity:1}.draft-swipe-delete[aria-hidden="true"]{visibility:hidden}.draft-swipe.is-dragging .draft-swipe-delete{visibility:visible}}
+@media(prefers-reduced-motion:reduce){.draft-swipe>.entry-card{transition:none}}
+
+/* Keep hover fill away from the label and reveal it without moving the hit area. */
+.text-button{padding:9px 12px;border-radius:8px;min-height:44px}
+.editor-header>.button{padding-left:16px}
+:where(.button,.icon-button,.text-button,.sidebar nav button,.platform-nav button,.sidebar-bottom>button,.platform-choices button,.search button){transition:background-color 180ms ease,color 180ms ease,border-color 180ms ease,box-shadow 180ms ease}
+.search button{border-radius:8px}
+@media(hover:hover) and (pointer:fine){
+  .text-button:hover:not(:disabled),.search button:hover:not(:disabled){background:#eaf0e3;color:#36583d}
+  .editor-header>.button:hover:not(:disabled){background:#eaf0e3}
+  .platform-choices button:hover:not(:disabled){border-color:#809979;background:#eff3e9}
+  .text-button.editor-delete:hover:not(:disabled){color:#a43e39;background:#faeae6}
+  .tokens .text-button:hover:not(:disabled){background:#faeae6;color:#a43e39}
+}
+@media(prefers-reduced-motion:reduce),(hover:none),(pointer:coarse){
+  :where(.button,.icon-button,.text-button,.sidebar nav button,.platform-nav button,.sidebar-bottom>button,.platform-choices button,.search button){transition:none}
+}

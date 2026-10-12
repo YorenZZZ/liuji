@@ -96,7 +96,7 @@ export function createApp(store, { publicOrigin = "", secureCookie = false, auth
   app.post("/api/entries", (req, res) => res.status(201).json(store.createEntry(req.body)));
   app.put("/api/entries/:id", (req, res) => res.json(store.updateEntry(req.params.id, req.body, z.number().int().positive().parse(req.body.expectedVersion))));
   app.post("/api/entries/:id/publications", (req, res) => res.status(201).json(store.recordPublication(req.params.id, req.body)));
-  app.post("/api/entries/:id/trash", (req, res) => res.json(store.trash(req.params.id, z.number().int().positive().parse(req.body.expectedVersion))));
+  app.post("/api/entries/:id/trash", (req, res) => res.json(store.trash(req.params.id, z.number().int().positive().parse(req.body.expectedVersion), false, z.boolean().optional().parse(req.body.draftOnly) === true)));
   app.post("/api/entries/:id/restore", (req, res) => res.json(store.trash(req.params.id, z.number().int().positive().parse(req.body.expectedVersion), true)));
   app.get("/api/tokens", (_req, res) => res.json({ items: store.tokenList() }));
   app.post("/api/tokens", (req, res) => res.status(201).json(store.issueToken(req.body.name, req.body.scope)));

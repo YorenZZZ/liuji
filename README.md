@@ -11,6 +11,8 @@ Docker自部署时间轴笔记工具，可快速导出为截图。
 - **MCP**：独立只读／读写令牌，让其他工具按权限读取与管理档案。
 - **轻量独立**：无 AI 调用、外部字体或 CDN；无需其他项目。界面中文，日期统一 Asia/Shanghai。
 
+草稿可直接移入回收站：电脑点击卡片右下角红色垃圾桶，手机向左滑动后点击删除；编辑页也保留带垃圾桶图标的删除入口。
+
 ## 页面示例
 
 ![留迹时间轴页面](https://raw.githubusercontent.com/YorenZZZ/liuji/main/docs/images/timeline.jpg)

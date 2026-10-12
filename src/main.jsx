@@ -212,7 +212,7 @@ function Editor({ initial, onBack, onChanged, notify }) {
     } finally {
       setActionBusy(false);
     }
-  }}>另存新草稿</Button></div>}<footer className="writing-footer"><span>{count} 字 · 自动保存</span><button className="text-button" disabled={actionBusy} onClick={() => action(() => setModal("trash"))}><Trash2 size={14} />移至回收站</button></footer>{entry.publications.length > 0 && <div className="entry-history"><h3>这段文字的足迹</h3>{entry.publications.map((p) => <div key={p.id}><span className="platform-dot" />{p.platform}<time>{formatDate(p.publishedAt, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div>)}</div>}</div>{modal === "export" && <ExportDialog text={text} date={entry.createdAt} onClose={() => setModal("")} />}{modal === "publish" && <PublishDialog entry={current.current} onClose={() => setModal("")} onDone={(e) => {
+  }}>另存新草稿</Button></div>}<footer className="writing-footer"><span>{count} 字 · 自动保存</span><button className="text-button editor-delete" disabled={actionBusy} onClick={() => action(() => setModal("trash"))}><Trash2 size={17} aria-hidden="true" />删除</button></footer>{entry.publications.length > 0 && <div className="entry-history"><h3>这段文字的足迹</h3>{entry.publications.map((p) => <div key={p.id}><span className="platform-dot" />{p.platform}<time>{formatDate(p.publishedAt, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div>)}</div>}</div>{modal === "export" && <ExportDialog text={text} date={entry.createdAt} onClose={() => setModal("")} />}{modal === "publish" && <PublishDialog entry={current.current} onClose={() => setModal("")} onDone={(e) => {
     current.current = e;
     setEntry(e);
     setModal("");
@@ -263,8 +263,45 @@ function SettingsDialog({ onClose, onLogout, notify, authRequired }) {
     }
   }}>确认撤销</Button></div></div>}</section><section className="settings-section"><div className="section-label"><ArrowDownToLine size={18} /><h3>完整备份</h3></div><p className="subtle">下载 SQLite 备份，包含全部文字、发布快照及私密连接信息，请妥善保管。</p><a className="button" href="/api/backup" download>下载备份</a></section>{error && <p className="error" role="alert">{error}</p>}<div className="settings-footer"><span>留迹 v1.1.0</span>{authRequired && <Button icon={LogOut} onClick={() => setConfirmLogout(true)}>退出登录</Button>}</div>{confirmLogout && <div className="notice">退出当前设备？已保存的文字仍会留在这里。<div className="form-footer"><Button onClick={() => setConfirmLogout(false)}>取消</Button><Button kind="primary" disabled={busy} onClick={async () => { setBusy(true); try { await onLogout(); } finally { setBusy(false); setConfirmLogout(false); } }}>确认退出</Button></div></div>}</Dialog>;
 }
+function DraftSwipe({ enabled, disabled, onDelete, children }) {
+  const [offset, setOffset] = useState(0), [dragging, setDragging] = useState(false);
+  const gesture = useRef(null), currentOffset = useRef(0), suppressClick = useRef(0);
+  const shift = value => { currentOffset.current = value; setOffset(value); };
+  const opened = offset <= -40;
+  const finish = (event, cancelled = false) => {
+    const g = gesture.current; gesture.current = null; setDragging(false);
+    if (!g) return;
+    if (g.axis === 'x') {
+      suppressClick.current = Date.now() + 400;
+      shift(cancelled ? g.start : currentOffset.current <= -40 ? -88 : 0);
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  if (!enabled) return children;
+  return <div className={`draft-swipe${opened ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}`} style={{ '--draft-offset': `${offset}px` }} tabIndex={0} aria-label="草稿操作，向左滑动或按左方向键显示删除" onKeyDown={event => {
+    if (disabled || event.target !== event.currentTarget) return;
+    if (event.key === 'ArrowLeft') { event.preventDefault(); shift(-88); }
+    if (event.key === 'ArrowRight' || event.key === 'Escape') { event.preventDefault(); shift(0); }
+  }} onPointerDown={event => {
+    if (disabled || !matchMedia('(max-width: 720px), (pointer: coarse)').matches || event.button !== 0 || event.target.closest('.draft-swipe-delete')) return;
+    gesture.current = { x: event.clientX, y: event.clientY, start: currentOffset.current, axis: '' };
+  }} onPointerMove={event => {
+    const g = gesture.current; if (!g) return;
+    const dx = event.clientX - g.x, dy = event.clientY - g.y;
+    if (!g.axis && Math.max(Math.abs(dx),Math.abs(dy)) > 8) g.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+    if (g.axis !== 'x') return;
+    event.currentTarget.setPointerCapture(event.pointerId); setDragging(true);
+    shift(Math.max(-88, Math.min(0, g.start + dx)));
+  }} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onClickCapture={event => {
+    if (event.target.closest('.draft-swipe-delete')) return;
+    if (Date.now() < suppressClick.current || opened) { event.preventDefault(); event.stopPropagation(); if (Date.now() >= suppressClick.current) shift(0); }
+  }}><button type="button" className="draft-swipe-delete" aria-label="删除草稿" aria-hidden={!opened} tabIndex={opened ? 0 : -1} disabled={disabled || !opened} onClick={onDelete}><Trash2 size={20} /><span>{disabled ? '删除中' : '删除'}</span></button>{children}</div>;
+}
+
 function App() {
   const [session, setSession] = useState(null), [view, setView] = useState(["timeline", "drafts", "trash"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "timeline"), [platform, setPlatform] = useState(""), [query, setQuery] = useState(""), [month, setMonth] = useState(""), [data, setData] = useState({ items: [], total: 0 }), [stats, setStats] = useState({ entries: 0, drafts: 0, publications: 0, platforms: [], months: [] }), [loading, setLoading] = useState(true), [error, setError] = useState(""), [entry, setEntry] = useState(null), [reading, setReading] = useState(null), [exported, setExported] = useState(null), [settings, setSettings] = useState(false), [refresh, setRefresh] = useState(0), [toast, setToast] = useState(""), [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const deleting = useRef(false);
   const request = useRef(0), toastTimer = useRef();
   const notify = (message) => {
     setToast(message);
@@ -296,7 +333,7 @@ function App() {
         const params = new URLSearchParams({ q: query, platform, limit: "40", ...month ? { month } : {}, ...view !== "timeline" ? { status: view } : {} });
         const [list, s] = await Promise.all([api(`/${view === "timeline" ? "timeline" : "entries"}?${params}`), api("/stats")]);
         if (seq === request.current) {
-          setData(list);
+          setData({ ...list, view });
           setStats(s);
           setError("");
         }
@@ -320,12 +357,23 @@ function App() {
     try {
       const params = new URLSearchParams({ q: query, platform, limit: "40", offset: String(data.items.length), ...month ? { month } : {}, ...view !== "timeline" ? { status: view } : {} });
       const next = await api(`/${view === "timeline" ? "timeline" : "entries"}?${params}`);
-      if (seq === request.current) setData((d) => ({ items: [...d.items, ...next.items], total: next.total }));
+      if (seq === request.current) setData((d) => ({ ...d, items: [...d.items, ...next.items], total: next.total }));
     } catch (e) {
       setError(e.message);
     } finally {
       if (seq === request.current) setLoading(false);
     }
+  }
+  async function deleteDraft(item) {
+    if (deleting.current) return;
+    deleting.current = true; setDeletingId(item.id);
+    try {
+      await api(`/entries/${item.id}/trash`, { method: "POST", body: { expectedVersion: item.version, draftOnly: true } });
+      request.current++;
+      setData(value => ({ ...value, items: value.items.filter(entry => entry.id !== item.id), total: Math.max(0, value.total - 1) }));
+      changed(); notify("草稿已移到回收站，可以随时恢复");
+    } catch (error) { notify(error.message); }
+    finally { deleting.current = false; setDeletingId(""); }
   }
   async function openEntry(id) {
     try {
@@ -349,6 +397,7 @@ function App() {
   if (!session) return <div className="app-loading">{error ? <><p>{error}</p><Button onClick={() => location.reload()}>重新连接</Button></> : <><Feather /><span>正在打开留迹…</span></>}</div>;
   if (!session.authenticated) return <Login needsSetup={session.needsSetup} onLogin={() => setSession({ authenticated: true, authRequired: true })} />;
   const filtered = !!query || !!platform || !!month;
+  const visibleData = data.view === view ? data : { items: [], total: 0 };
   return <div className="app-shell"><aside className="sidebar"><a className="brand" href="#timeline" onClick={(e) => {
     if (entry) e.preventDefault();
     else switchView("timeline");
@@ -370,7 +419,7 @@ function App() {
   }}><span className="platform-dot" /><span>{p.platform}</span><small>{p.count}</small></button>) : <p>第一次发布之后，<br />你的平台会出现在这里。</p>}</div><div className="sidebar-bottom"><p className="sidebar-quote">文字会散落，<br />表达值得留下。</p><button aria-label="回收站" disabled={!!entry} className={view === "trash" ? "active" : ""} onClick={() => switchView("trash")}><Icon icon={Trash2} /><span>回收站</span></button><button aria-label="连接与存档" onClick={() => setSettings(true)}><Icon icon={Settings} /><span>连接与存档</span></button></div></aside><main className="main">{entry ? <Editor key={entry.id} initial={entry} onBack={() => {
     setEntry(null);
     changed();
-  }} onChanged={changed} notify={notify} /> : <><header className="page-header"><div className="eyebrow">YOUR WORDS, OVER TIME</div><div className="heading-row"><h1>{view === "timeline" ? "每一次表达，都有迹可循。" : view === "drafts" ? "还没说完的话，慢慢写。" : "暂时收起的文字。"}</h1><span className="header-count">{view === "timeline" ? stats.publications : view === "drafts" ? stats.drafts : data.total}<small>{view === "timeline" ? "次发布" : view === "drafts" ? "篇草稿" : "篇文字"}</small></span></div><p>{view === "timeline" ? "在不同的地方发声，在同一条时间线上重逢。" : view === "drafts" ? "这里没有进度条。一句话，也值得好好留下。" : "恢复后，文字和它的发布记录会一起回来。"}</p></header><div className="filterbar"><div className="view-label"><BookOpen size={18} /><span>{platform || { timeline: "全部足迹", drafts: "我的草稿", trash: "回收站" }[view]}</span>{platform && <button className="icon-button" aria-label="清除平台筛选" onClick={() => setPlatform("")}><X size={14} /></button>}</div><div className="filters">{view === "timeline" && stats.platforms.length > 0 && <select className="mobile-platform-filter" aria-label="按平台筛选" value={platform} onChange={(e) => setPlatform(e.target.value)}><option value="">所有平台</option>{stats.platforms.map((p) => <option key={p.platform} value={p.platform}>{p.platform}</option>)}</select>}{view === "timeline" && stats.months.length > 0 && <select aria-label="按月份筛选" value={month} onChange={(e) => setMonth(e.target.value)}><option value="">所有月份</option>{stats.months.map((m) => <option key={m} value={m}>{m.replace("-", " 年 ")} 月</option>)}</select>}<label className="search"><Search size={16} /><input aria-label="搜索文字" value={query} maxLength={200} onChange={(e) => setQuery(e.target.value)} placeholder="找一段文字…" />{query && <button aria-label="清空搜索" onClick={() => setQuery("")}><X size={14} /></button>}</label></div></div>{error && <div className="notice error" role="alert">{error}<Button onClick={changed}>重试</Button></div>}<div className="timeline" aria-busy={loading}>{loading && !data.items.length ? <div className="empty"><Loader2 className="spin" /><p>正在翻开档案…</p></div> : !data.items.length ? <div className="empty"><div className="empty-art"><div className="paper-a" /><div className="paper-b"><Feather size={28} /><i /><i /><i /></div></div><h2>{filtered ? "还没找到这段文字" : view === "timeline" ? "从第一段想说的话开始" : view === "drafts" ? "你的下一句话，写在这里" : "这里空空的，很好。"}</h2><p>{filtered ? "试试别的关键词，或清除筛选。" : view === "timeline" ? "写下来，存成图片。发布之后，把这一刻留在这里。" : view === "drafts" ? "写一段属于此刻的文字，不必急着发布。" : "暂时没有移入回收站的内容。"}</p>{filtered ? <Button onClick={() => {
+  }} onChanged={changed} notify={notify} /> : <><header className="page-header"><div className="eyebrow">YOUR WORDS, OVER TIME</div><div className="heading-row"><h1>{view === "timeline" ? "每一次表达，都有迹可循。" : view === "drafts" ? "还没说完的话，慢慢写。" : "暂时收起的文字。"}</h1><span className="header-count">{view === "timeline" ? stats.publications : view === "drafts" ? stats.drafts : visibleData.total}<small>{view === "timeline" ? "次发布" : view === "drafts" ? "篇草稿" : "篇文字"}</small></span></div><p>{view === "timeline" ? "在不同的地方发声，在同一条时间线上重逢。" : view === "drafts" ? "这里没有进度条。一句话，也值得好好留下。" : "恢复后，文字和它的发布记录会一起回来。"}</p></header><div className="filterbar"><div className="view-label"><BookOpen size={18} /><span>{platform || { timeline: "全部足迹", drafts: "我的草稿", trash: "回收站" }[view]}</span>{platform && <button className="icon-button" aria-label="清除平台筛选" onClick={() => setPlatform("")}><X size={14} /></button>}</div><div className="filters">{view === "timeline" && stats.platforms.length > 0 && <select className="mobile-platform-filter" aria-label="按平台筛选" value={platform} onChange={(e) => setPlatform(e.target.value)}><option value="">所有平台</option>{stats.platforms.map((p) => <option key={p.platform} value={p.platform}>{p.platform}</option>)}</select>}{view === "timeline" && stats.months.length > 0 && <select aria-label="按月份筛选" value={month} onChange={(e) => setMonth(e.target.value)}><option value="">所有月份</option>{stats.months.map((m) => <option key={m} value={m}>{m.replace("-", " 年 ")} 月</option>)}</select>}<label className="search"><Search size={16} /><input aria-label="搜索文字" value={query} maxLength={200} onChange={(e) => setQuery(e.target.value)} placeholder="找一段文字…" />{query && <button aria-label="清空搜索" onClick={() => setQuery("")}><X size={14} /></button>}</label></div></div>{error && <div className="notice error" role="alert">{error}<Button onClick={changed}>重试</Button></div>}<div className="timeline" aria-busy={loading}>{loading && !visibleData.items.length ? <div className="empty"><Loader2 className="spin" /><p>正在翻开档案…</p></div> : !visibleData.items.length ? <div className="empty"><div className="empty-art"><div className="paper-a" /><div className="paper-b"><Feather size={28} /><i /><i /><i /></div></div><h2>{filtered ? "还没找到这段文字" : view === "timeline" ? "从第一段想说的话开始" : view === "drafts" ? "你的下一句话，写在这里" : "这里空空的，很好。"}</h2><p>{filtered ? "试试别的关键词，或清除筛选。" : view === "timeline" ? "写下来，存成图片。发布之后，把这一刻留在这里。" : view === "drafts" ? "写一段属于此刻的文字，不必急着发布。" : "暂时没有移入回收站的内容。"}</p>{filtered ? <Button onClick={() => {
     setQuery("");
     setPlatform("");
     setMonth("");
@@ -384,9 +433,9 @@ function App() {
     } finally {
       setCreating(false);
     }
-  }}>写下第一段</Button>}</div> : data.items.map((item, index) => {
-    const pub = view === "timeline", body = pub ? item.snapshot : item, date = pub ? item.publishedAt : item.updatedAt, group = formatDate(date, { year: "numeric", month: "long" }), prev = data.items[index - 1], previous = prev ? formatDate(pub ? prev.publishedAt : prev.updatedAt, { year: "numeric", month: "long" }) : "";
-    return <React.Fragment key={item.id}>{group !== previous && <div className="month-heading"><span>{group}</span><div /></div>}<article className="timeline-row"><div className="date-rail"><strong>{formatDate(date, { day: "2-digit" }).replace("日", "")}</strong><small>{formatDate(date, { weekday: "short" })}</small></div><div className="entry-card"><div className="card-top"><span className="platform-badge"><span className="platform-dot" />{pub ? item.platform : view === "trash" ? "已收起" : "未发布"}</span><time>{formatDate(date, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div><button className="card-text" onClick={() => view === "trash" ? setReading({ snapshot: body, ...item }) : pub ? setReading(item) : openEntry(item.id)}>{body.text || "还没有写下文字…"}</button><div className="card-footer"><span>{Array.from((body.text || "").replace(/\s/g, "")).length} 字</span>{view === "trash" ? <button className="text-button" onClick={async () => {
+  }}>写下第一段</Button>}</div> : visibleData.items.map((item, index) => {
+    const pub = view === "timeline", body = pub ? item.snapshot : item, date = pub ? item.publishedAt : item.updatedAt, group = formatDate(date, { year: "numeric", month: "long" }), prev = visibleData.items[index - 1], previous = prev ? formatDate(pub ? prev.publishedAt : prev.updatedAt, { year: "numeric", month: "long" }) : "";
+    return <React.Fragment key={item.id}>{group !== previous && <div className="month-heading"><span>{group}</span><div /></div>}<article className="timeline-row"><div className="date-rail"><strong>{formatDate(date, { day: "2-digit" }).replace("日", "")}</strong><small>{formatDate(date, { weekday: "short" })}</small></div><DraftSwipe enabled={view === "drafts"} disabled={!!deletingId} onDelete={() => deleteDraft(item)}><div className="entry-card"><div className="card-top"><span className="platform-badge"><span className="platform-dot" />{pub ? item.platform : view === "trash" ? "已收起" : "未发布"}</span><time>{formatDate(date, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div><button className="card-text" onClick={() => view === "trash" ? setReading({ snapshot: body, ...item }) : pub ? setReading(item) : openEntry(item.id)}>{body.text || "还没有写下文字…"}</button><div className="card-footer"><span>{Array.from((body.text || "").replace(/\s/g, "")).length} 字</span>{view === "trash" ? <button className="text-button" onClick={async () => {
       try {
         await api(`/entries/${item.id}/restore`, { method: "POST", body: { expectedVersion: item.version } });
         changed();
@@ -394,8 +443,8 @@ function App() {
       } catch (e) {
         notify(e.message);
       }
-    }}>恢复这篇</button> : <button className="text-button" onClick={() => pub ? setReading(item) : openEntry(item.id)}>{pub ? "展开这段文字" : "继续写"}<ArrowUpRight size={15} /></button>}</div></div></article></React.Fragment>;
-  })}{data.items.length < data.total && <div className="load-more"><Button disabled={loading} onClick={more}>{loading ? "读取中…" : "再往前翻一翻"}</Button></div>}{data.items.length > 0 && data.items.length >= data.total && <p className="timeline-end">—— 表达留在这里，生活继续向前 ——</p>}</div></>}</main>{toast && <div className="toast" role="status"><Check size={16} />{toast}</div>}{reading && <Dialog title={reading.platform ? `发布于${reading.platform}` : "这段文字"} wide onClose={() => setReading(null)}><p className="reading-meta">{formatDate(reading.publishedAt || reading.updatedAt, { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</p><div className="reading-text">{reading.snapshot.text || "还没有写下文字。"}</div><div className="reading-actions"><Button icon={ArrowDownToLine} disabled={!reading.snapshot.text.trim()} onClick={() => {
+    }}>恢复这篇</button> : <button className="text-button" onClick={() => pub ? setReading(item) : openEntry(item.id)}>{pub ? "展开这段文字" : "继续写"}<ArrowUpRight size={15} /></button>}{view === "drafts" && <button type="button" className="icon-button draft-desktop-delete" aria-label="删除草稿" title="删除草稿" disabled={!!deletingId} onClick={() => deleteDraft(item)}>{deletingId === item.id ? <Loader2 size={18} className="spin" /> : <Trash2 size={18} aria-hidden="true" />}</button>}</div></div></DraftSwipe></article></React.Fragment>;
+  })}{visibleData.items.length < visibleData.total && <div className="load-more"><Button disabled={loading} onClick={more}>{loading ? "读取中…" : "再往前翻一翻"}</Button></div>}{visibleData.items.length > 0 && visibleData.items.length >= visibleData.total && <p className="timeline-end">—— 表达留在这里，生活继续向前 ——</p>}</div></>}</main>{toast && <div className="toast" role="status"><Check size={16} />{toast}</div>}{reading && <Dialog title={reading.platform ? `发布于${reading.platform}` : "这段文字"} wide onClose={() => setReading(null)}><p className="reading-meta">{formatDate(reading.publishedAt || reading.updatedAt, { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</p><div className="reading-text">{reading.snapshot.text || "还没有写下文字。"}</div><div className="reading-actions"><Button icon={ArrowDownToLine} disabled={!reading.snapshot.text.trim()} onClick={() => {
     setExported({ text: reading.snapshot.text, date: reading.publishedAt || reading.updatedAt });
   }}>存成图片</Button>{reading.entryId && <Button onClick={() => openEntry(reading.entryId)}>编辑原稿</Button>}{reading.url && <a className="button" href={reading.url} target="_blank" rel="noopener noreferrer">查看原帖<ArrowUpRight size={15} /></a>}</div>{reading.platform && <p className="subtle">这是发布时保存的文字，编辑原稿不会改变它。</p>}</Dialog>}{exported && <ExportDialog {...exported} onClose={() => setExported(null)} />}{settings && <SettingsDialog authRequired={session.authRequired} onClose={() => setSettings(false)} notify={notify} onLogout={async () => {
     if (entry) {

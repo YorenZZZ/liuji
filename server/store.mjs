@@ -124,9 +124,9 @@ export function createStore(file) {
   function stats() {
     return { entries: db.prepare("SELECT count(*) n FROM entries WHERE trashed_at IS NULL").get().n, drafts: db.prepare("SELECT count(*) n FROM entries e WHERE trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM publications p WHERE p.entry_id=e.id)").get().n, publications: db.prepare("SELECT count(*) n FROM publications p JOIN entries e ON p.entry_id=e.id WHERE e.trashed_at IS NULL").get().n, platforms: db.prepare("SELECT p.platform,count(*) count FROM publications p JOIN entries e ON p.entry_id=e.id WHERE e.trashed_at IS NULL GROUP BY platform ORDER BY count DESC").all(), months: db.prepare("SELECT DISTINCT strftime('%Y-%m',p.published_at,'+8 hours') month FROM publications p JOIN entries e ON p.entry_id=e.id WHERE e.trashed_at IS NULL ORDER BY month DESC").all().map((x) => x.month) };
   }
-  function trash(id, version, restore = false) {
-    const r = db.prepare(`UPDATE entries SET trashed_at=?,version=version+1,updated_at=? WHERE id=? AND version=?`).run(restore ? null : now(), now(), id, version);
-    if (!r.changes) throw new AppError("内容已更新，请刷新后重试", 409);
+  function trash(id, version, restore = false, draftOnly = false) {
+    const r = db.prepare(`UPDATE entries SET trashed_at=?,version=version+1,updated_at=? WHERE id=? AND version=?${draftOnly ? ' AND trashed_at IS NULL AND NOT EXISTS (SELECT 1 FROM publications WHERE entry_id=entries.id)' : ''}`).run(restore ? null : now(), now(), id, version);
+    if (!r.changes) throw new AppError(draftOnly ? "草稿已更新或已发布，请刷新后再操作" : "内容已更新，请刷新后重试", 409);
     return getEntry(id);
   }
   function setPassword(password) {
