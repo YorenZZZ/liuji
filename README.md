@@ -1,4 +1,4 @@
-# 留迹 · Liuji
+# 留迹
 
 Docker自部署时间轴笔记工具，可快速导出为截图。
 
@@ -10,6 +10,12 @@ Docker自部署时间轴笔记工具，可快速导出为截图。
 - **可靠保存**：服务端 SQLite 自动保存、版本冲突保护、回收站恢复和在线备份。
 - **MCP**：独立只读／读写令牌，让其他工具按权限读取与管理档案。
 - **轻量独立**：无 AI 调用、外部字体或 CDN；无需其他项目。界面中文，日期统一 Asia/Shanghai。
+
+## 页面示例
+
+![留迹时间轴页面](https://raw.githubusercontent.com/YorenZZZ/liuji/main/docs/images/timeline.jpg)
+
+*截图使用虚构示例内容。*
 
 ## Docker 快速开始
 

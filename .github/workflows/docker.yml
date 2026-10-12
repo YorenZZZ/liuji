@@ -32,7 +32,7 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}/liuji:latest
             ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}/liuji:${{ steps.version.outputs.version }}
           labels: |
-            org.opencontainers.image.title=Liuji
+            org.opencontainers.image.title=留迹
             org.opencontainers.image.description=Docker自部署时间轴笔记工具，可快速导出为截图。
             org.opencontainers.image.source=https://github.com/YorenZZZ/liuji
             org.opencontainers.image.revision=${{ github.sha }}
