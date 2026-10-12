@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+node scripts/check-communication-log.mjs
+node scripts/check-public-files.mjs
+if [ -f .git/backup-before-push.sh ]; then sh .git/backup-before-push.sh; fi

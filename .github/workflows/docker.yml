@@ -1,0 +1,42 @@
+name: Publish Docker image
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci && npm run check && npm run check:privacy && npm test && npm run build
+      - id: version
+        run: node -p '"version=" + require("./package.json").version' >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}/liuji:latest
+            ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}/liuji:${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Liuji
+            org.opencontainers.image.description=纯文字创作、图片导出与多平台发布档案
+            org.opencontainers.image.source=https://github.com/YorenZZZ/liuji
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

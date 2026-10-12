@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+.env
+.git
+test
+*.sqlite*
+._*
+.DS_Store
+docs
+.github
+.githooks

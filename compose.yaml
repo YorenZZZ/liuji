@@ -1,0 +1,23 @@
+services:
+  liuji:
+    image: yorenzzz/liuji:1.1.0
+    restart: unless-stopped
+    ports:
+      - "${LIUJI_BIND_IP:-127.0.0.1}:${LIUJI_PORT:-18910}:18910"
+    environment:
+      AUTH_REQUIRED: "${LIUJI_AUTH_REQUIRED:-true}"
+      PUBLIC_ORIGIN: "${LIUJI_PUBLIC_ORIGIN:-}"
+      COOKIE_SECURE: "${LIUJI_COOKIE_SECURE:-false}"
+    volumes:
+      - liuji-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    init: true
+    stop_grace_period: 15s
+volumes:
+  liuji-data:
