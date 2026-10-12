@@ -212,18 +212,22 @@ function Editor({ initial, onBack, onChanged, notify }) {
     } finally {
       setActionBusy(false);
     }
-  }}>另存新草稿</Button></div>}<footer className="writing-footer"><span>{count} 字 · 自动保存</span><button className="text-button editor-delete" disabled={actionBusy} onClick={() => action(() => setModal("trash"))}><Trash2 size={17} aria-hidden="true" />删除</button></footer>{entry.publications.length > 0 && <div className="entry-history"><h3>这段文字的足迹</h3>{entry.publications.map((p) => <div key={p.id}><span className="platform-dot" />{p.platform}<time>{formatDate(p.publishedAt, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div>)}</div>}</div>{modal === "export" && <ExportDialog text={text} date={entry.createdAt} onClose={() => setModal("")} />}{modal === "publish" && <PublishDialog entry={current.current} onClose={() => setModal("")} onDone={(e) => {
+  }}>另存新草稿</Button></div>}<footer className="writing-footer"><span>{count} 字 · 自动保存</span><button className="text-button editor-delete" disabled={actionBusy} onClick={() => action(async (savedEntry) => {
+    if (savedEntry.publications.length) { setModal("trash"); return; }
+    await api(`/entries/${savedEntry.id}/trash`, { method: "POST", body: { expectedVersion: savedEntry.version, draftOnly: true } });
+    onChanged(); onBack(); notify("草稿已移至回收站，可随时恢复。");
+  })}><Trash2 size={17} aria-hidden="true" />删除</button></footer>{entry.publications.length > 0 && <div className="entry-history"><h3>这段文字的足迹</h3>{entry.publications.map((p) => <div key={p.id}><span className="platform-dot" />{p.platform}<time>{formatDate(p.publishedAt, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></div>)}</div>}</div>{modal === "export" && <ExportDialog text={text} date={entry.createdAt} onClose={() => setModal("")} />}{modal === "publish" && <PublishDialog entry={current.current} onClose={() => setModal("")} onDone={(e) => {
     current.current = e;
     setEntry(e);
     setModal("");
     onChanged();
     notify("发布已记录，时间轴多了一枚足迹。");
-  }} />}{modal === "trash" && <Dialog title="移至回收站？" onClose={() => setModal("")}><p>原稿和发布记录会一起隐藏，之后可以恢复。</p><div className="form-footer"><Button onClick={() => setModal("")}>取消</Button><Button kind="primary" disabled={actionBusy} onClick={() => action(async (e) => {
+  }} />}{modal === "trash" && <Dialog title="删除这篇正文？" onClose={() => setModal("")}><p>这篇正文已经发布。删除后，原稿和发布记录会一起移入回收站，之后可以恢复。</p><div className="form-footer"><Button onClick={() => setModal("")}>取消</Button><Button kind="primary" disabled={actionBusy} onClick={() => action(async (e) => {
     await api(`/entries/${e.id}/trash`, { method: "POST", body: { expectedVersion: e.version } });
     onChanged();
     onBack();
     notify("已移至回收站，可随时恢复。");
-  })}>移至回收站</Button></div></Dialog>}</section>;
+  })}>确认删除</Button></div></Dialog>}</section>;
 }
 function SettingsDialog({ onClose, onLogout, notify, authRequired }) {
   const [tokens, setTokens] = useState([]), [name, setName] = useState("工作台"), [scope, setScope] = useState("read"), [issued, setIssued] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [revoke, setRevoke] = useState(null);
