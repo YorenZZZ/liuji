@@ -33,7 +33,7 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME || 'yorenzzz' }}/liuji:${{ steps.version.outputs.version }}
           labels: |
             org.opencontainers.image.title=Liuji
-            org.opencontainers.image.description=纯文字创作、图片导出与多平台发布档案
+            org.opencontainers.image.description=Docker自部署时间轴笔记工具，可快速导出为截图。
             org.opencontainers.image.source=https://github.com/YorenZZZ/liuji
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
